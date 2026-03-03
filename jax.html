@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html> 
+<head>
+<meta charset="UTF-8">
+<title>Jax</title>
+<style>
+body{font-family:Arial,sans-serif;background:#0f172a;color:white;margin:0;display:flex;flex-direction:column;align-items:center;}
+header{padding:20px;font-size:26px;font-weight:bold;}
+#auth,#chatContainer{width:90%;max-width:900px;margin-top:20px;}
+input{padding:10px;border-radius:5px;border:none;margin:5px 0;width:100%;}
+button{padding:10px;border:none;border-radius:5px;background:#2563eb;color:white;cursor:pointer;margin-top:5px;}
+button:hover{background:#1d4ed8;}
+#chat{height:50vh;overflow-y:auto;background:#1e293b;padding:15px;border-radius:10px;}
+.message{margin:10px 0;}
+.user{color:#38bdf8;}
+.ai{color:#a3e635;}
+.hidden{display:none;}
+canvas{margin-top:10px;border-radius:10px;max-width:100%;}
+</style>
+</head>
+<body>
+
+<header>🧠 Jax</header>
+
+<div id="auth">
+  <h3>Sign Up</h3>
+  <input type="text" id="signupUser" placeholder="Username">
+  <input type="password" id="signupPass" placeholder="Password">
+  <button onclick="signUp()">Sign Up</button>
+
+  <h3>Log In</h3>
+  <input type="text" id="loginUser" placeholder="Username">
+  <input type="password" id="loginPass" placeholder="Password">
+  <button onclick="logIn()">Log In</button>
+</div>
+
+<div id="chatContainer" class="hidden">
+  <button onclick="logout()">Log Out</button>
+  <div id="chat"></div>
+  <input type="text" id="userInput" placeholder="Ask Jax something...">
+  <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+// Simple hash function
+function simpleHash(str){
+  let hash=0;
+  for(let i=0;i<str.length;i++){
+    hash=((hash<<5)-hash)+str.charCodeAt(i);
+    hash=hash & hash;
+  }
+  return hash.toString();
+}
+
+const chatDiv=document.getElementById("chat");
+const authDiv=document.getElementById("auth");
+const chatContainer=document.getElementById("chatContainer");
+
+let currentUser=localStorage.getItem("jax_logged_in");
+let userMemory={}; // per user long-term memory
+
+if(currentUser){
+  showChat();
+  loadMemory();
+}
+
+function addMessage(text,sender){
+  const div=document.createElement("div");
+  div.className="message "+sender;
+  div.innerText=(sender==="user"?"You: ":"Jax: ")+text;
+  chatDiv.appendChild(div);
+  chatDiv.scrollTop=chatDiv.scrollHeight;
+  if(sender==="user") saveMemory("user:"+text);
+  else saveMemory("jax:"+text);
+}
+
+// Save/load memory
+function saveMemory(msg){
+  if(!currentUser) return;
+  if(!userMemory[currentUser]) userMemory[currentUser]=[];
+  userMemory[currentUser].push(msg);
+  localStorage.setItem("jax_memory",JSON.stringify(userMemory));
+}
+function loadMemory(){
+  userMemory=JSON.parse(localStorage.getItem("jax_memory")||"{}");
+  if(userMemory[currentUser]){
+    userMemory[currentUser].forEach(m=>{
+      const sender=m.startsWith("user:")?"user":"ai";
+      addMessage(m.substring(5),sender);
+    });
+  }
+}
+
+// Sign Up / Log In / Logout
+function signUp(){
+  const user=document.getElementById("signupUser").value.trim();
+  const pass=document.getElementById("signupPass").value.trim();
+  if(!user||!pass) return alert("Fill all fields.");
+  let users=JSON.parse(localStorage.getItem("jax_users")||"{}");
+  if(users[user]) return alert("Username already exists.");
+  users[user]=simpleHash(pass);
+  localStorage.setItem("jax_users",JSON.stringify(users));
+  alert("Sign-up successful! Log in now.");
+}
+function logIn(){
+  const user=document.getElementById("loginUser").value.trim();
+  const pass=document.getElementById("loginPass").value.trim();
+  let users=JSON.parse(localStorage.getItem("jax_users")||"{}");
+  if(users[user] && users[user]===simpleHash(pass)){
+    currentUser=user;
+    localStorage.setItem("jax_logged_in",user);
+    showChat();
+    loadMemory();
+  } else alert("Invalid username/password");
+}
+function logout(){
+  currentUser=null;
+  localStorage.removeItem("jax_logged_in");
+  chatContainer.classList.add("hidden");
+  authDiv.classList.remove("hidden");
+  chatDiv.innerHTML="";
+  document.getElementById("loginUser").value="";
+  document.getElementById("loginPass").value="";
+}
+
+function showChat(){
+  authDiv.classList.add("hidden");
+  chatContainer.classList.remove("hidden");
+  addMessage("Hi "+currentUser+". How can I help you?","ai");
+}
+
+// Offline responses
+function offlineResponse(input){
+  input=input.toLowerCase();
+  if(input.includes("hello")||input.includes("hi")) return "Hello "+currentUser+"!";
+  if(input.includes("your name")) return "My name is Jax.";
+  return null;
+}
+
+// Fast offline image generator
+function fastImage(prompt){
+  const canvas=document.createElement("canvas");
+  canvas.width=400;
+  canvas.height=250;
+  const ctx=canvas.getContext("2d");
+  ctx.fillStyle="#4c6ef5"; ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(prompt.toLowerCase().includes("sun")){ctx.fillStyle="yellow";ctx.beginPath();ctx.arc(200,70,40,0,Math.PI*2);ctx.fill();}
+  if(prompt.toLowerCase().includes("mountain")){ctx.fillStyle="#2f3e46";ctx.beginPath();ctx.moveTo(0,250);ctx.lineTo(150,100);ctx.lineTo(300,250);ctx.fill();}
+  return canvas;
+}
+
+// Story generator
+function generateStory(prompt){
+  const heroes=["a brave knight","a clever fox","a young wizard","an adventurous girl","a talking cat"];
+  const villains=["an evil dragon","a wicked witch","a greedy giant","a sneaky goblin","a dark sorcerer"];
+  const settings=["in a mystical forest","in a faraway kingdom","in a haunted castle","in a magical mountain","in a hidden cave"];
+  const twists=["found a hidden treasure","discovered a secret spell","was trapped in a maze","learned an important lesson","made a new friend"];
+
+  const hero=heroes[Math.floor(Math.random()*heroes.length)];
+  const villain=villains[Math.floor(Math.random()*villains.length)];
+  const setting=settings[Math.floor(Math.random()*settings.length)];
+  const twist=twists[Math.floor(Math.random()*twists.length)];
+
+  return `Once upon a time, ${hero} faced ${villain} ${setting} and ${twist}.`;
+}
+
+// DuckDuckGo search fallback
+async function webSearch(query){
+  try{
+    const res=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(query)+"&format=json&no_redirect=1&skip_disambig=1");
+    const data=await res.json();
+    if(data.AbstractText) return data.AbstractText;
+    if(data.RelatedTopics && data.RelatedTopics.length>0) return data.RelatedTopics[0].Text;
+    return "I couldn't find anything online.";
+  }catch(e){return "Error searching online.";}
+}
+
+// Handle user input
+async function sendMessage(){
+  const input=document.getElementById("userInput");
+  const text=input.value.trim();
+  if(!text) return;
+  addMessage(text,"user");
+  input.value="";
+
+  const normalized=text.toLowerCase().replace(/\s+/g," ").trim();
+
+  // Secret phrase
+  if(normalized==="lima uniform charlie alpha pshe"){
+    addMessage("physical sex harassment education","ai");
+    return;
+  }
+
+  // Story trigger
+  if(normalized.includes("story") || normalized.includes("tell me a story")){
+    const story=generateStory(normalized);
+    addMessage(story,"ai");
+    return;
+  }
+
+  // Image generation commands
+  if(normalized.includes("draw")||normalized.includes("image")||normalized.includes("generate")||normalized.includes("picture")){
+    const canvas=fastImage(text);
+    chatDiv.appendChild(canvas);
+    return;
+  }
+
+  // Offline responses
+  let response=offlineResponse(text);
+  if(response){
+    addMessage(response,"ai");
+    return;
+  }
+
+  // Fallback web search
+  addMessage("Let me check online...","ai");
+  const result=await webSearch(text);
+  addMessage(result,"ai");
+}
+</script>
+
+</body>
+</html>
